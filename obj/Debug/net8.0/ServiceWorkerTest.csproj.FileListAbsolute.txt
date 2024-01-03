@@ -47,3 +47,4 @@ D:\repos\ServiceWorkerTest\obj\Debug\net8.0\refint\ServiceWorkerTest.dll
 D:\repos\ServiceWorkerTest\obj\Debug\net8.0\ServiceWorkerTest.pdb
 D:\repos\ServiceWorkerTest\obj\Debug\net8.0\ServiceWorkerTest.genruntimeconfig.cache
 D:\repos\ServiceWorkerTest\obj\Debug\net8.0\ref\ServiceWorkerTest.dll
+D:\repos\ServiceWorkerTest\obj\Debug\net8.0\ServiceWorkerTest.sourcelink.json
