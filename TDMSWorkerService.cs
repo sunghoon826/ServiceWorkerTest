@@ -2,9 +2,9 @@ using System.Text.Json;
 
 public class TDMSWorkerService : BackgroundService
 {
-    private HashSet<string> processedFiles = new HashSet<string>();
-    private string? jsonData;
+    private Dictionary<string, HashSet<string>> dailyProcessedFiles = new Dictionary<string, HashSet<string>>();
     readonly ILogger<TDMSWorkerService> _logger;
+    //private string? jsonData;
 
     public TDMSWorkerService(ILogger<TDMSWorkerService> logger)
     {
@@ -17,19 +17,34 @@ public class TDMSWorkerService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        string lastProcessedDate = GetCurrentDateString();
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
                 string currentDate = GetCurrentDateString();
-                string[] directories = Directory.GetDirectories(Path.GetDirectoryName(TdmsFilesPath));
 
+                if (!dailyProcessedFiles.ContainsKey(currentDate)) // 헤시셋에 오늘 날짜가 딕셔너리에 없을 때 새로운 해시셋을 생성
+                {
+                    dailyProcessedFiles[currentDate] = new HashSet<string>();
+                }
+
+                var currentDayProcessedFiles = dailyProcessedFiles[currentDate];
+
+                string[] directories = Directory.GetDirectories(Path.GetDirectoryName(TdmsFilesPath)); // 날짜명 폴더이름을 찾아서 directories에 대입
                 foreach (string dir in directories)
                 {
-                    if (new DirectoryInfo(dir).Name == currentDate)
+                    if (new DirectoryInfo(dir).Name == currentDate) // 오늘 날짜인 날짜명 폴더를 찾아서
                     {
-                        await ProcessDirectoryAsync(dir, stoppingToken);
+                        await ProcessDirectoryAsync(dir, currentDayProcessedFiles, stoppingToken); // tdms 파일들을 처리
                     }
+                }
+
+                if (currentDate != lastProcessedDate) // currentDate와 lastProcessedDate가 다르면(날짜가 바뀌었으면)
+                {
+                    _logger.LogInformation("Previous day's data is still available for date: {lastProcessedDate}", lastProcessedDate);
+                    lastProcessedDate = currentDate;
                 }
             }
             catch (Exception ex)
@@ -40,7 +55,7 @@ public class TDMSWorkerService : BackgroundService
         }
     }
 
-    private async Task ProcessDirectoryAsync(string directory, CancellationToken stoppingToken)
+    private async Task ProcessDirectoryAsync(string directory, HashSet<string> processedFiles, CancellationToken stoppingToken)
     {
         if (!Directory.Exists(directory))
         {
@@ -53,12 +68,12 @@ public class TDMSWorkerService : BackgroundService
         {
             if (!processedFiles.Contains(filePath))
             {
-                await ProcessFileAsync(filePath);
+                await ProcessFileAsync(filePath, processedFiles);
             }
         }
     }
 
-    private async Task ProcessFileAsync(string filePath)
+    private async Task ProcessFileAsync(string filePath, HashSet<string> processedFiles)
     {
         _logger.LogInformation("Found new TDMS file: {filePath}", filePath);
         using var fileStream = File.OpenRead(filePath);
@@ -70,7 +85,7 @@ public class TDMSWorkerService : BackgroundService
         processedFiles.Add(filePath);
     }
 
-    private void ProcessTdmsFile(MemoryStream completeStream)
+    private void ProcessTdmsFile(MemoryStream completeStream) //tdms 처리
     {
         using var tdms = new NationalInstruments.Tdms.File(completeStream);
         tdms.Open();
@@ -101,9 +116,9 @@ public class TDMSWorkerService : BackgroundService
             tdmsData.Add(groupData);
         }
 
-        var options = new JsonSerializerOptions { WriteIndented = true };
-        jsonData = JsonSerializer.Serialize(tdmsData, options);
-        _logger.LogInformation("Converted TDMS to JSON: {jsonData}", jsonData);
+        //var options = new JsonSerializerOptions { WriteIndented = true };
+        //jsonData = JsonSerializer.Serialize(tdmsData, options);
+        //_logger.LogInformation("Converted TDMS to JSON: {jsonData}", jsonData); //json 로그
     }
 
     private class TdmsGroupData
