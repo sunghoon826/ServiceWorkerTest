@@ -4,16 +4,16 @@ public class TDMSWorkerService : BackgroundService
 {
     private Dictionary<string, HashSet<string>> dailyProcessedFiles = new Dictionary<string, HashSet<string>>();
     readonly ILogger<TDMSWorkerService> _logger;
-    //private string? jsonData;
+    private string? jsonData;
 
     public TDMSWorkerService(ILogger<TDMSWorkerService> logger)
     {
         _logger = logger;
     }
 
-    private string GetCurrentDateString() => DateTime.Now.ToString("yyyy-MM-dd");
+    private string GetCurrentDateString() => DateTime.Now.ToString("yyyy-MM-dd"); // 현재날짜
 
-    private string TdmsFilesPath => Path.Combine(@"D:\repos\FMTDMS\", GetCurrentDateString());
+    private string TdmsFilesPath => Path.Combine(@"D:\repos\FMTDMS\", GetCurrentDateString()); // 현재 날짜 경로
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -25,7 +25,7 @@ public class TDMSWorkerService : BackgroundService
             {
                 string currentDate = GetCurrentDateString();
 
-                if (!dailyProcessedFiles.ContainsKey(currentDate)) // 헤시셋에 오늘 날짜가 딕셔너리에 없을 때 새로운 해시셋을 생성
+                if (!dailyProcessedFiles.ContainsKey(currentDate)) // 헤시셋에 오늘 날짜명이 딕셔너리 없을 때, 새로운 해시셋을 생성
                 {
                     dailyProcessedFiles[currentDate] = new HashSet<string>();
                 }
@@ -51,7 +51,7 @@ public class TDMSWorkerService : BackgroundService
             {
                 _logger.LogError(ex, "Error occurred processing TDMS files.");
             }
-            await Task.Delay(30000, stoppingToken);
+            await Task.Delay(30000, stoppingToken); // 딜레이 설정
         }
     }
 
@@ -75,14 +75,27 @@ public class TDMSWorkerService : BackgroundService
 
     private async Task ProcessFileAsync(string filePath, HashSet<string> processedFiles)
     {
-        _logger.LogInformation("Found new TDMS file: {filePath}", filePath);
-        using var fileStream = File.OpenRead(filePath);
-        using var completeStream = new MemoryStream();
-        await fileStream.CopyToAsync(completeStream);
-        completeStream.Position = 0;
-        ProcessTdmsFile(completeStream);
+        try
+        {
+            _logger.LogInformation("Found new TDMS file: {filePath}", filePath);
+            using var fileStream = File.OpenRead(filePath);
+            using var completeStream = new MemoryStream();
+            await fileStream.CopyToAsync(completeStream);
+            completeStream.Position = 0;
+            ProcessTdmsFile(completeStream);
 
-        processedFiles.Add(filePath);
+            processedFiles.Add(filePath);
+
+            // JSON 파일 저장 로직
+            string jsonFilePath = Path.ChangeExtension(filePath, ".json"); // .tdms 파일과 같은 이름으로 .json 확장자를 사용
+            await File.WriteAllTextAsync(jsonFilePath, jsonData); // jsonData를 json 파일로 저장
+
+            _logger.LogInformation("TDMS file converted to JSON successfully: {filePath}", jsonFilePath); // 로그
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("Failed to convert TDMS file to JSON: {filePath}. Error: {error}", filePath, ex.ToString());
+        }
     }
 
     private void ProcessTdmsFile(MemoryStream completeStream) //tdms 처리
@@ -108,17 +121,19 @@ public class TDMSWorkerService : BackgroundService
                 {
                     Name = channel.Name,
                     Data = channel.GetData<object>().ToList(),
-                    Properties = channel.Properties.ToDictionary(p => p.Key, p => p.Value)
+                    Properties = channel.Properties.ToDictionary(p => p.Key, p => p.Value) //
                 };
 
                 groupData.Channels.Add(channelData);
             }
             tdmsData.Add(groupData);
+
+
         }
 
-        //var options = new JsonSerializerOptions { WriteIndented = true };
-        //jsonData = JsonSerializer.Serialize(tdmsData, options);
-        //_logger.LogInformation("Converted TDMS to JSON: {jsonData}", jsonData); //json 로그
+        var options = new JsonSerializerOptions { WriteIndented = true };
+        jsonData = JsonSerializer.Serialize(tdmsData, options);
+        //_logger.LogInformation("Converted TDMS to JSON: {jsonData}", jsonData);
     }
 
     private class TdmsGroupData
