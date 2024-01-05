@@ -77,28 +77,34 @@ public class TDMSWorkerService : BackgroundService
     {
         try
         {
-            _logger.LogInformation("Found new TDMS file: {filePath}", filePath);
+            _logger.LogInformation("Processing new TDMS file: {filePath}", filePath);
+         
             using var fileStream = File.OpenRead(filePath);
             using var completeStream = new MemoryStream();
             await fileStream.CopyToAsync(completeStream);
             completeStream.Position = 0;
+                     
             ProcessTdmsFile(completeStream);
-
             processedFiles.Add(filePath);
 
             // JSON 파일 저장 로직
-            string jsonFilePath = Path.ChangeExtension(filePath, ".json"); // .tdms 파일과 같은 이름으로 .json 확장자를 사용
+            string jsonFilePath = Path.ChangeExtension(filePath, ".json");
             await File.WriteAllTextAsync(jsonFilePath, jsonData); // jsonData를 json 파일로 저장
 
-            _logger.LogInformation("TDMS file converted to JSON successfully: {filePath}", jsonFilePath); // 로그
+            _logger.LogInformation("TDMS file converted to JSON successfully: {filePath}", jsonFilePath);
         }
         catch (Exception ex)
         {
             _logger.LogError("Failed to convert TDMS file to JSON: {filePath}. Error: {error}", filePath, ex.ToString());
         }
+        finally
+        {
+            // 메모리 해제
+            jsonData = null; // jsonData 사용 완료 후 null 처리
+        }
     }
 
-    private void ProcessTdmsFile(MemoryStream completeStream) //tdms 처리
+    private void ProcessTdmsFile(MemoryStream completeStream)
     {
         using var tdms = new NationalInstruments.Tdms.File(completeStream);
         tdms.Open();
@@ -127,13 +133,13 @@ public class TDMSWorkerService : BackgroundService
                 groupData.Channels.Add(channelData);
             }
             tdmsData.Add(groupData);
-
-
         }
 
         var options = new JsonSerializerOptions { WriteIndented = true };
         jsonData = JsonSerializer.Serialize(tdmsData, options);
         //_logger.LogInformation("Converted TDMS to JSON: {jsonData}", jsonData);
+        tdmsData.Clear();
+        GC.Collect();
     }
 
     private class TdmsGroupData
