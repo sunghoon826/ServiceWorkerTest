@@ -2,49 +2,40 @@ using System.Text.Json;
 
 public class TDMSWorkerService : BackgroundService
 {
-    private Dictionary<string, HashSet<string>> dailyProcessedFiles = new Dictionary<string, HashSet<string>>();
     readonly ILogger<TDMSWorkerService> _logger;
     private string? jsonData;
+    private HashSet<string> currentDayProcessedFiles = new HashSet<string>(); // 현재 날짜에 대한 파일을 저장하는 해시셋
+    private string lastProcessedDate; // 마지막으로 처리된 날짜를 저장
 
     public TDMSWorkerService(ILogger<TDMSWorkerService> logger)
     {
         _logger = logger;
+        lastProcessedDate = GetCurrentDateString(); // 서비스 시작 시 날짜 초기화
     }
 
-    private string GetCurrentDateString() => DateTime.Now.ToString("yyyy-MM-dd"); // 현재날짜
+    private string GetCurrentDateString() => DateTime.Now.ToString("yyyy-MM-dd"); // 현재 날짜 가져오기
 
-    private string TdmsFilesPath => Path.Combine(@"D:\repos\FMTDMS\", GetCurrentDateString()); // 현재 날짜 경로
+    private string TdmsFilesPath => Path.Combine(@"C:\Users\Administrator\Desktop\20240105_tdms\SK ON\Seosan\", GetCurrentDateString()); // 현재 날짜 경로
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        string lastProcessedDate = GetCurrentDateString();
-
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
                 string currentDate = GetCurrentDateString();
 
-                if (!dailyProcessedFiles.ContainsKey(currentDate)) // 헤시셋에 오늘 날짜명이 딕셔너리 없을 때, 새로운 해시셋을 생성
+                // 날짜가 변경되었는지 확인하고, 변경되었다면 해시셋 초기화
+                if (currentDate != lastProcessedDate)
                 {
-                    dailyProcessedFiles[currentDate] = new HashSet<string>();
-                }
-
-                var currentDayProcessedFiles = dailyProcessedFiles[currentDate];
-
-                string[] directories = Directory.GetDirectories(Path.GetDirectoryName(TdmsFilesPath)); // 날짜명 폴더이름을 찾아서 directories에 대입
-                foreach (string dir in directories)
-                {
-                    if (new DirectoryInfo(dir).Name == currentDate) // 오늘 날짜인 날짜명 폴더를 찾아서
-                    {
-                        await ProcessDirectoryAsync(dir, currentDayProcessedFiles, stoppingToken); // tdms 파일들을 처리
-                    }
-                }
-
-                if (currentDate != lastProcessedDate) // currentDate와 lastProcessedDate가 다르면(날짜가 바뀌었으면)
-                {
-                    _logger.LogInformation("Previous day's data is still available for date: {lastProcessedDate}", lastProcessedDate);
+                    currentDayProcessedFiles.Clear();
                     lastProcessedDate = currentDate;
+                    _logger.LogInformation("New day detected, reset processed files for {currentDate}", currentDate);
+                }
+
+                if (Directory.Exists(TdmsFilesPath))
+                {
+                    await ProcessDirectoryAsync(TdmsFilesPath, stoppingToken); // tdms 파일들을 처리
                 }
             }
             catch (Exception ex)
@@ -55,37 +46,31 @@ public class TDMSWorkerService : BackgroundService
         }
     }
 
-    private async Task ProcessDirectoryAsync(string directory, HashSet<string> processedFiles, CancellationToken stoppingToken)
+    private async Task ProcessDirectoryAsync(string directory, CancellationToken stoppingToken)
     {
-        if (!Directory.Exists(directory))
-        {
-            _logger.LogInformation("Directory does not exist: {directory}", directory);
-            return;
-        }
-
         var tdmsFiles = Directory.GetFiles(directory, "*.tdms");
         foreach (var filePath in tdmsFiles)
         {
-            if (!processedFiles.Contains(filePath))
+            if (!currentDayProcessedFiles.Contains(filePath))
             {
-                await ProcessFileAsync(filePath, processedFiles);
+                await ProcessFileAsync(filePath);
             }
         }
     }
 
-    private async Task ProcessFileAsync(string filePath, HashSet<string> processedFiles)
+    private async Task ProcessFileAsync(string filePath)
     {
         try
         {
             _logger.LogInformation("Processing new TDMS file: {filePath}", filePath);
-         
+
             using var fileStream = File.OpenRead(filePath);
             using var completeStream = new MemoryStream();
             await fileStream.CopyToAsync(completeStream);
             completeStream.Position = 0;
-                     
+
             ProcessTdmsFile(completeStream);
-            processedFiles.Add(filePath);
+            currentDayProcessedFiles.Add(filePath); // 파일을 처리한 후 해시셋에 추가
 
             // JSON 파일 저장 로직
             string jsonFilePath = Path.ChangeExtension(filePath, ".json");

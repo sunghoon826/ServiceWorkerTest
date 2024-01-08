@@ -13,9 +13,9 @@ using System.Reflection;
 
 [assembly: Microsoft.Extensions.Configuration.UserSecrets.UserSecretsIdAttribute("dotnet-ServiceWorkerTest-37933632-406f-4b0b-9fff-a50c905f7c37")]
 [assembly: System.Reflection.AssemblyCompanyAttribute("ServiceWorkerTest")]
-[assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
+[assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+15ccde849f3002a2b06944f9238ef2b49e95044a")]
 [assembly: System.Reflection.AssemblyProductAttribute("ServiceWorkerTest")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ServiceWorkerTest")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
