@@ -111,8 +111,8 @@ public class TDMSWorkerService : BackgroundService
                 var channelData = new TdmsChannelData
                 {
                     Name = channel.Name,
-                    Data = channel.GetData<object>().ToList(),
-                    Properties = channel.Properties.ToDictionary(p => p.Key, p => p.Value) //
+                    Data = channel.GetData<float>().Select(value => (float)(Math.Truncate(value * 1000) / 1000)).ToList(), // 소수점 셋째자리까지 남기고 나머지 버림
+                    Properties = channel.Properties.ToDictionary(p => p.Key, p => p.Value)
                 };
 
                 groupData.Channels.Add(channelData);
@@ -127,6 +127,7 @@ public class TDMSWorkerService : BackgroundService
         GC.Collect();
     }
 
+
     private class TdmsGroupData
     {
         public string? GroupName { get; set; }
@@ -136,7 +137,7 @@ public class TDMSWorkerService : BackgroundService
     private class TdmsChannelData
     {
         public string? Name { get; set; }
-        public List<object>? Data { get; set; }
+        public List<float>? Data { get; set; }
         public Dictionary<string, object>? Properties { get; set; }
     }
 }

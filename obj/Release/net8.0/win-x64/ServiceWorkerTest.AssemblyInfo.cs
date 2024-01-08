@@ -15,7 +15,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ServiceWorkerTest")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+15ccde849f3002a2b06944f9238ef2b49e95044a")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b4ae73b01f38d01da7d0d2af5073b23f49d40b44")]
 [assembly: System.Reflection.AssemblyProductAttribute("ServiceWorkerTest")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ServiceWorkerTest")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
