@@ -1,4 +1,5 @@
 using System.Text.Json;
+using static TdmsDataContext;
 
 public class TDMSWorkerService : BackgroundService
 {
@@ -15,7 +16,7 @@ public class TDMSWorkerService : BackgroundService
 
     private string GetCurrentDateString() => DateTime.Now.ToString("yyyy-MM-dd"); // 현재 날짜 가져오기
 
-    private string TdmsFilesPath => Path.Combine(@"C:\Users\Administrator\Desktop\20240105_tdms\SK ON\Seosan\", GetCurrentDateString()); // 현재 날짜 경로
+    private string TdmsFilesPath => Path.Combine(@"D:\repos\FMTDMS\", GetCurrentDateString()); // 현재 날짜 경로
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -70,6 +71,24 @@ public class TDMSWorkerService : BackgroundService
             completeStream.Position = 0;
 
             ProcessTdmsFile(completeStream);
+
+
+
+            using (var context = new TdmsDataContext())
+            {
+                var fileData = new TdmsFileData
+                {
+                    FileName = Path.GetFileName(filePath),
+                    Data = File.ReadAllBytes(filePath) // BLOB 데이터
+                };
+
+                context.TdmsFiles.Add(fileData);
+                await context.SaveChangesAsync();
+            }
+
+
+
+
             currentDayProcessedFiles.Add(filePath); // 파일을 처리한 후 해시셋에 추가
 
             // JSON 파일 저장 로직
@@ -111,7 +130,7 @@ public class TDMSWorkerService : BackgroundService
                 var channelData = new TdmsChannelData
                 {
                     Name = channel.Name,
-                    Data = channel.GetData<float>().Select(value => (float)(Math.Truncate(value * 1000) / 1000)).ToList(), // 소수점 셋째자리까지 남기고 나머지 버림
+                    Data = channel.GetData<double>().Select(value => (float)(Math.Round(value, 3) )).ToList(), // 소수점 셋째자리까지 남기고 나머지 버림
                     Properties = channel.Properties.ToDictionary(p => p.Key, p => p.Value)
                 };
 
