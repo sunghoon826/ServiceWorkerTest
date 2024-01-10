@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using static TdmsDataContext;
 
@@ -70,36 +71,30 @@ public class TDMSWorkerService : BackgroundService
             await fileStream.CopyToAsync(completeStream);
             completeStream.Position = 0;
 
-            ProcessTdmsFile(completeStream);
+            ProcessTdmsFile(completeStream); // TDMS 파일 처리
 
-
+            // 소수점 처리된 데이터를 BLOB 데이터로 변환
+            var processedData = Encoding.UTF8.GetBytes(jsonData);
 
             using (var context = new TdmsDataContext())
             {
                 var fileData = new TdmsFileData
                 {
                     FileName = Path.GetFileName(filePath),
-                    Data = File.ReadAllBytes(filePath) // BLOB 데이터
+                    Data = processedData // BLOB 데이터
                 };
 
                 context.TdmsFiles.Add(fileData);
                 await context.SaveChangesAsync();
             }
 
-
-
-
             currentDayProcessedFiles.Add(filePath); // 파일을 처리한 후 해시셋에 추가
 
-            // JSON 파일 저장 로직
-            string jsonFilePath = Path.ChangeExtension(filePath, ".json");
-            await File.WriteAllTextAsync(jsonFilePath, jsonData); // jsonData를 json 파일로 저장
-
-            _logger.LogInformation("TDMS file converted to JSON successfully: {filePath}", jsonFilePath);
+            _logger.LogInformation("TDMS file processed and saved to DB successfully: {filePath}", filePath);
         }
         catch (Exception ex)
         {
-            _logger.LogError("Failed to convert TDMS file to JSON: {filePath}. Error: {error}", filePath, ex.ToString());
+            _logger.LogError("Failed to process TDMS file: {filePath}. Error: {error}", filePath, ex.ToString());
         }
         finally
         {
@@ -107,6 +102,8 @@ public class TDMSWorkerService : BackgroundService
             jsonData = null; // jsonData 사용 완료 후 null 처리
         }
     }
+
+
 
     private void ProcessTdmsFile(MemoryStream completeStream)
     {
