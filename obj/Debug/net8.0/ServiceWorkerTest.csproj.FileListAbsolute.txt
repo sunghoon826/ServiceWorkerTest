@@ -48,3 +48,4 @@ D:\repos\ServiceWorkerTest\obj\Debug\net8.0\ServiceWorkerTest.pdb
 D:\repos\ServiceWorkerTest\obj\Debug\net8.0\ServiceWorkerTest.genruntimeconfig.cache
 D:\repos\ServiceWorkerTest\obj\Debug\net8.0\ref\ServiceWorkerTest.dll
 D:\repos\ServiceWorkerTest\obj\Debug\net8.0\ServiceWorkerTest.sourcelink.json
+D:\repos\ServiceWorkerTest\bin\Debug\net8.0\MathNet.Numerics.dll

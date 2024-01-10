@@ -1,3 +1,6 @@
+using MathNet.Numerics.IntegralTransforms;
+using MathNet.Numerics;
+using System.Numerics;
 using System.Text.Json;
 
 public class TDMSWorkerService : BackgroundService
@@ -15,7 +18,7 @@ public class TDMSWorkerService : BackgroundService
 
     private string GetCurrentDateString() => DateTime.Now.ToString("yyyy-MM-dd"); // 현재 날짜 가져오기
 
-    private string TdmsFilesPath => Path.Combine(@"C:\Users\Administrator\Desktop\20240105_tdms\SK ON\Seosan\", GetCurrentDateString()); // 현재 날짜 경로
+    private string TdmsFilesPath => Path.Combine(@"D:\repos\FMTDMS\", GetCurrentDateString()); // 현재 날짜 경로
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -104,15 +107,31 @@ public class TDMSWorkerService : BackgroundService
                 Channels = new List<TdmsChannelData>()
             };
 
-            groupData.GroupName = string.IsNullOrWhiteSpace(groupData.GroupName) || groupData.GroupName == "제목없음" ? "Untitled" : groupData.GroupName;
-
             foreach (var channel in group)
             {
+                // TDMS 파일로부터 데이터 읽기 (가정: double[] 형식)
+                var rawData = channel.GetData<double>().ToArray();
+
+                // Hanning 윈도우 적용
+                var hanningWindow = Window.Hann(rawData.Length);
+                var windowedData = rawData.Zip(hanningWindow, (data, window) => data * window).ToArray();
+
+                // double[]를 Complex[]로 변환
+                Complex[] complexData = windowedData.Select(value => new Complex(value, 0)).ToArray();
+
+                // FFT 처리
+                Fourier.Forward(complexData, FourierOptions.Default);
+
+                // FFT 결과의 첫 번째 절반만 사용
+                var fftResultHalf = complexData.Take(complexData.Length / 2)
+                                               .Select(c => (float)c.Magnitude)
+                                               .ToList();
+
                 var channelData = new TdmsChannelData
                 {
                     Name = channel.Name,
-                    Data = channel.GetData<object>().ToList(),
-                    Properties = channel.Properties.ToDictionary(p => p.Key, p => p.Value) //
+                    Data = fftResultHalf,
+                    Properties = channel.Properties.ToDictionary(p => p.Key, p => p.Value)
                 };
 
                 groupData.Channels.Add(channelData);
@@ -122,7 +141,7 @@ public class TDMSWorkerService : BackgroundService
 
         var options = new JsonSerializerOptions { WriteIndented = true };
         jsonData = JsonSerializer.Serialize(tdmsData, options);
-        //_logger.LogInformation("Converted TDMS to JSON: {jsonData}", jsonData);
+
         tdmsData.Clear();
         GC.Collect();
     }
@@ -136,7 +155,7 @@ public class TDMSWorkerService : BackgroundService
     private class TdmsChannelData
     {
         public string? Name { get; set; }
-        public List<object>? Data { get; set; }
+        public List<float>? Data { get; set; }
         public Dictionary<string, object>? Properties { get; set; }
     }
 }
