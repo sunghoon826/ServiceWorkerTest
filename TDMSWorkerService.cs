@@ -130,8 +130,8 @@ public class TDMSWorkerService : BackgroundService
                 var channelData = new TdmsChannelData
                 {
                     Name = channel.Name,
-                    Data = channel.GetData<double>().Select(value => (float)(Math.Round(value, 3) )).ToList(), // 소수점 셋째자리까지 남기고 나머지 버림
-                    Properties = channel.Properties.ToDictionary(p => p.Key, p => p.Value)
+                    Data = channel.GetData<double>().Select(value => (float)value).ToList(),
+                    Properties = channel.Properties.ToDictionary(p => p.Key, p => p.Value) 
                 };
 
                 groupData.Channels.Add(channelData);
