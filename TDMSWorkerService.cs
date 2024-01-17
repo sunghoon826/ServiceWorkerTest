@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using static TdmsDataContext;
 
@@ -65,35 +66,40 @@ public class TDMSWorkerService : BackgroundService
         {
             _logger.LogInformation("Processing new TDMS file: {filePath}", filePath);
 
-            using var fileStream = File.OpenRead(filePath);
-            using var completeStream = new MemoryStream();
-            await fileStream.CopyToAsync(completeStream);
-            completeStream.Position = 0;
+            // 파일 처리 및 JSON 변환
+            using (var fileStream = File.OpenRead(filePath))
+            {
+                using (var completeStream = new MemoryStream())
+                {
+                    await fileStream.CopyToAsync(completeStream);
+                    completeStream.Position = 0;
 
-            ProcessTdmsFile(completeStream);
+                    ProcessTdmsFile(completeStream);
+                }
+            }
 
+            // JSON 데이터를 바이너리로 변환
+            byte[] binaryData = Encoding.UTF8.GetBytes(jsonData);
 
-
+            // 데이터베이스에 바이너리 데이터 저장
             using (var context = new TdmsDataContext())
             {
                 var fileData = new TdmsFileData
                 {
-                    FileName = Path.GetFileName(filePath),
-                    Data = File.ReadAllBytes(filePath) // BLOB 데이터
+                   FileName = Path.GetFileName(filePath),
+                    Data = binaryData
                 };
 
                 context.TdmsFiles.Add(fileData);
                 await context.SaveChangesAsync();
             }
 
+            // 해시셋에 파일 경로 추가
+            currentDayProcessedFiles.Add(filePath);
 
-
-
-            currentDayProcessedFiles.Add(filePath); // 파일을 처리한 후 해시셋에 추가
-
-            // JSON 파일 저장 로직
+            // JSON 파일로 저장 (선택적)
             string jsonFilePath = Path.ChangeExtension(filePath, ".json");
-            await File.WriteAllTextAsync(jsonFilePath, jsonData); // jsonData를 json 파일로 저장
+            await File.WriteAllTextAsync(jsonFilePath, jsonData);
 
             _logger.LogInformation("TDMS file converted to JSON successfully: {filePath}", jsonFilePath);
         }
@@ -104,47 +110,39 @@ public class TDMSWorkerService : BackgroundService
         finally
         {
             // 메모리 해제
-            jsonData = null; // jsonData 사용 완료 후 null 처리
+            jsonData = null;
         }
     }
+
+
 
     private void ProcessTdmsFile(MemoryStream completeStream)
     {
         using var tdms = new NationalInstruments.Tdms.File(completeStream);
         tdms.Open();
 
-        var tdmsData = new List<TdmsGroupData>();
+        if (!tdms.Any()) return; // TDMS 파일에 그룹이 없으면 리턴
 
-        foreach (var group in tdms)
+        var firstGroup = tdms.First(); // 첫 번째 그룹
+
+        if (!firstGroup.Any()) return; // 첫 번째 그룹에 채널이 없으면 리턴
+
+        var firstChannel = firstGroup.First(); // 첫 번째 채널
+
+        var firstChannelData = new TdmsChannelData
         {
-            var groupData = new TdmsGroupData
-            {
-                GroupName = group.Name,
-                Channels = new List<TdmsChannelData>()
-            };
+            //Name = firstChannel.Name,
+            Data = firstChannel.GetData<double>().Select(value => (float)value).ToList(),
+            //Properties = firstChannel.Properties.ToDictionary(p => p.Key, p => p.Value)
+        };
 
-            groupData.GroupName = string.IsNullOrWhiteSpace(groupData.GroupName) || groupData.GroupName == "제목없음" ? "Untitled" : groupData.GroupName;
-
-            foreach (var channel in group)
-            {
-                var channelData = new TdmsChannelData
-                {
-                    Name = channel.Name,
-                    Data = channel.GetData<double>().Select(value => (float)value).ToList(),
-                    Properties = channel.Properties.ToDictionary(p => p.Key, p => p.Value) 
-                };
-
-                groupData.Channels.Add(channelData);
-            }
-            tdmsData.Add(groupData);
-        }
-
+        // 첫 번째 채널의 데이터를 JSON으로 변환
         var options = new JsonSerializerOptions { WriteIndented = true };
-        jsonData = JsonSerializer.Serialize(tdmsData, options);
-        //_logger.LogInformation("Converted TDMS to JSON: {jsonData}", jsonData);
-        tdmsData.Clear();
-        GC.Collect();
+        jsonData = JsonSerializer.Serialize(firstChannelData, options);
+        //_logger.LogInformation("Converted first channel of TDMS to JSON: {jsonData}", jsonData);
     }
+
+
 
 
     private class TdmsGroupData
@@ -155,8 +153,8 @@ public class TDMSWorkerService : BackgroundService
 
     private class TdmsChannelData
     {
-        public string? Name { get; set; }
+        //public string? Name { get; set; }
         public List<float>? Data { get; set; }
-        public Dictionary<string, object>? Properties { get; set; }
+        //public Dictionary<string, object>? Properties { get; set; }
     }
 }

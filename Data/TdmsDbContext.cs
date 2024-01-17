@@ -7,7 +7,7 @@ public class TdmsDataContext : DbContext
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-        optionsBuilder.UseSqlite("Data Source=tdmsData.db");
+        optionsBuilder.UseNpgsql("Host=localhost;Database=TdmsFiles;Username=postgres;Password=postgres");
     }
 
     public class TdmsFileData

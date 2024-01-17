@@ -62,6 +62,14 @@
               "target": "Package",
               "version": "[8.0.0, )"
             },
+            "Npgsql": {
+              "target": "Package",
+              "version": "[8.0.1, )"
+            },
+            "Npgsql.EntityFrameworkCore.PostgreSQL": {
+              "target": "Package",
+              "version": "[8.0.0, )"
+            },
             "TDMSReader": {
               "target": "Package",
               "version": "[3.1.0, )"
